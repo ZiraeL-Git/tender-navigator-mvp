@@ -4,7 +4,6 @@ from docx import Document
 from io import BytesIO
 import re
 import requests
-from ollama import chat, ChatResponse
 import sqlite3
 from datetime import datetime
 
