@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+tender_history.db
+uploads/
+sample_data/
+.streamlit/secrets.toml
