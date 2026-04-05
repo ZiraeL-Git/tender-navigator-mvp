@@ -19,21 +19,7 @@ python -m venv .venv
 pip install -r requirements.txt
 streamlit run app.py
 
-#Альтернативный запуск для git bash
+##Альтернативный запуск для git bash
 
 source /c/Users/Oleg/Documents/GitHub/TenderNavigator/tender_navigator_mvp/.venv/Scripts/activate
 
-
----
-
-## Шаг 4. Сделай “облачную” правку в `app.py`
-
-Поскольку локальный Ollama в облаке не поднимется, тебе нужно на время публикации сделать один из двух вариантов.
-
-### Вариант А — временно отключить AI-кнопку
-Самый безопасный вариант.
-
-Например:
-
-```python
-DEPLOY_MODE = True
