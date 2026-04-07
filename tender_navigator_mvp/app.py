@@ -1,16 +1,29 @@
-import streamlit as st
-from pypdf import PdfReader
-from docx import Document
-from io import BytesIO
-import re
-import requests
 import sqlite3
 from datetime import datetime
 
-DEPLOY_MODE = True
+import requests
+import streamlit as st
+
+from services.analysis import analyze_tender_package, build_company_profile
+from services.document_io import build_tender_documents
 
 
-#Функция создания базы данных
+if "ai_summary" not in st.session_state:
+    st.session_state.ai_summary = ""
+
+if "last_uploaded_signature" not in st.session_state:
+    st.session_state.last_uploaded_signature = ""
+
+AI_MODE = True
+DB_MODE = True
+
+
+def model_to_dict(model):
+    if hasattr(model, "model_dump"):
+        return model.model_dump(mode="json")
+    return model.dict()
+
+
 def init_db():
     conn = sqlite3.connect("tender_history.db")
     cur = conn.cursor()
@@ -35,12 +48,12 @@ def init_db():
     conn.commit()
     conn.close()
 
-#Запуск базы данных
+
 init_db()
 
-#Функция сохрания в базу данных
+
 def save_analysis(
-    filename,
+    package_name,
     notice_number,
     object_name,
     price,
@@ -49,7 +62,7 @@ def save_analysis(
     bid_security,
     contract_security,
     quality_guarantee,
-    summary
+    summary,
 ):
     conn = sqlite3.connect("tender_history.db")
     cur = conn.cursor()
@@ -71,7 +84,7 @@ def save_analysis(
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        filename,
+        package_name,
         notice_number,
         object_name,
         price,
@@ -80,13 +93,13 @@ def save_analysis(
         bid_security,
         contract_security,
         quality_guarantee,
-        summary
+        summary,
     ))
 
     conn.commit()
     conn.close()
 
-#Функция просмотра последних записей
+
 def get_last_analyses(limit=5):
     conn = sqlite3.connect("tender_history.db")
     cur = conn.cursor()
@@ -102,372 +115,206 @@ def get_last_analyses(limit=5):
     conn.close()
     return rows
 
-st.title("ТендерНавигатор MVP")
-st.write("Загрузи PDF или DOCX с документацией закупки")
 
-uploaded_file = st.file_uploader("Выбери файл", type=["pdf", "docx"])
-
-#Нормализация данных
-def normalize_text(text: str) -> str:
-    if not text:
-        return ""
-    text = text.replace("\xa0", " ")
-    text = text.replace("—", "-").replace("–", "-")
-    text = re.sub(r"[ \t]+", " ", text)
-    text = re.sub(r"\s+", " ", text)
-    return text.strip()
-
-#Поиск извещения
-def find_notice_number(text: str):
-    flat = normalize_text(text)
-    patterns = [
-        r"Номер\s+извещения\s*[:\-]?\s*(\d{19})",
-        r"для\s+закупки\s+№\s*(\d{19})",
-    ]
-    for pattern in patterns:
-        m = re.search(pattern, flat, re.IGNORECASE)
-        if m:
-            return m.group(1)
-    return None
-
-#Поиск наименования объекта закупки
-def find_object_name(text: str):
-    flat = normalize_text(text)
-    patterns = [
-        r"Наименование\s+объекта\s+закупки\s*[:\-]?\s*(.+?)(?=\s+Способ\s+определения\s+поставщика|\s+Размещение\s+осуществляет|\s+Контактная\s+информация)",
-    ]
-    for pattern in patterns:
-        m = re.search(pattern, flat, re.IGNORECASE | re.DOTALL)
-        if m:
-            return m.group(1).strip()
-    return None
-
-#Поиск цены/НМЦК
-def find_price(text: str):
-    flat = normalize_text(text)
-    patterns = [
-        r"Начальная\s*\(\s*максимальная\s*\)\s*цена\s+контракта\s*[:\-]?\s*([\d\s]+(?:[.,]\d{2})?)",
-        r"НМЦК\s*[:\-]?\s*([\d\s]+(?:[.,]\d{2})?)",
-        r"цена\s+контракта\s*[:\-]?\s*([\d\s]+(?:[.,]\d{2})?)",
-    ]
-    for pattern in patterns:
-        m = re.search(pattern, flat, re.IGNORECASE)
-        if m:
-            return m.group(1).replace(" ", "").replace(",", ".")
-    return None
-
-#Поиск обеспечения заявки
-def find_bid_security(text: str):
-    flat = normalize_text(text)
-    if re.search(r"Обеспечение\s+заявок\s+не\s+требуется", flat, re.IGNORECASE):
-        return "Не требуется"
-    if re.search(r"Требуется\s+обеспечение\s+заявки", flat, re.IGNORECASE):
-        return "Требуется"
-    return None
-
-#Поиск обеспечения исполнения контракта
-def find_contract_security(text: str):
-    flat = normalize_text(text)
-
-    if re.search(r"Требуется\s+обеспечение\s+исполнения\s+контракта", flat, re.IGNORECASE):
-        percent = re.search(
-            r"Размер\s+обеспечения\s+исполнения\s+контракта\s*[:\-]?\s*([\d.,]+)\s*%",
-            flat,
-            re.IGNORECASE
-        )
-        if percent:
-            return f"{percent.group(1)}%"
-        return "Требуется"
-    return "Не требуется"
-
-#Поиск сроков подачи заявок
-def find_deadline(text: str):
-    flat = normalize_text(text)
-    patterns = [
-        r"Дата\s+и\s+время\s+окончания\s+срока\s+подачи\s+заявок\s*[:\-]?\s*([0-3]?\d\.[01]?\d\.\d{4}\s+[0-2]?\d:\d{2})",
-        r"Дата\s+и\s+время\s+окончания\s+подачи\s+заявок\s*[:\-]?\s*([0-3]?\d\.[01]?\d\.\d{4}\s+[0-2]?\d:\d{2})",
-        r"Дата\s+окончания\s+подачи\s+заявок\s*[:\-]?\s*([0-3]?\d\.[01]?\d\.\d{4}(?:\s+[0-2]?\d:\d{2})?)",
-    ]
-    for pattern in patterns:
-        m = re.search(pattern, flat, re.IGNORECASE)
-        if m:
-            return m.group(1).strip()
-    return None
-
-#Требуется ли лицензия / допуск
-def detect_license_requirement(text: str):
-    flat = normalize_text(text).lower()
-    keywords = [
-        "лиценз",
-        "допуск",
-        "сро",
-        "разрешени",
-        "аккредитац",
-    ]
-    return any(k in flat for k in keywords)
-
-#Поиск требований к опыту
-def detect_experience_requirement(text: str):
-    flat = normalize_text(text).lower()
-    keywords = [
-        "опыт исполнения",
-        "аналогичн",
-        "исполненных контрактов",
-        "опыт поставки",
-        "опыт оказания услуг",
-    ]
-    return any(k in flat for k in keywords)
-
-#Поиск гарантии качества
-def find_quality_guarantee(text: str):
-    flat = normalize_text(text)
-    m = re.search(
-        r"Требуется\s+гарантия\s+качества\s+товара,\s*работы,\s*услуги\s*[:\-]?\s*(Да|Нет)",
-        flat,
-        re.IGNORECASE
-    )
-    if m:
-        return m.group(1)
-    return None
-
-#Извлечение текста из pdf
-def extract_text_from_pdf(file) -> str:
-    reader = PdfReader(file)
-    parts = []
-    for page in reader.pages:
-        text = page.extract_text() or ""
-        parts.append(text)
-
-    joined = "\n".join(parts).strip()
-
-    if len(joined) < 50:
-        # тут нужен OCR fallback
-        return ""
-
-    return joined
-
-#Извлечение текста из Word
-def extract_text_from_docx(file) -> str:
-    doc = Document(file)
-    return "\n".join([p.text for p in doc.paragraphs])
-
-#Составление чек-листа
-def build_checklist(need_license, need_experience, bid_security, contract_security, quality_guarantee):
-    checklist = [
-        "Проверить соответствие предмета закупки профилю компании",
-        "Проверить срок окончания подачи заявки",
-        "Проверить НМЦК и экономическую целесообразность участия",
-        "Проверить полный состав обязательных документов"
-    ]
-
-    if need_license:
-        checklist.append("Подтвердить наличие лицензии / допуска")
-
-    if need_experience:
-        checklist.append("Подготовить документы, подтверждающие релевантный опыт")
-
-    if bid_security and "требуется" in bid_security.lower():
-        checklist.append("Проверить необходимость и порядок предоставления обеспечения заявки")
-
-    if contract_security and contract_security != "Не требуется":
-        checklist.append(f"Проверить обеспечение исполнения контракта: {contract_security}")
-
-    if quality_guarantee and quality_guarantee.lower() == "да":
-        checklist.append("Проверить требования к гарантии качества товара / услуги")
-
-    checklist.append("Проверить проект контракта и возможные риски по условиям исполнения")
-
-    return checklist
-
-#Логика принятия решения
-def make_decision(need_license, need_experience, company_has_license, company_has_experience, company_can_prepare_fast):
-    reasons = []
-
-    if need_license and company_has_license == "Нет":
-        reasons.append("Обнаружено требование лицензии/допуска, которого у компании нет.")
-        return "НЕ ИДЕМ", reasons
-
-    if need_experience and company_has_experience == "Нет":
-        reasons.append("Обнаружено требование подтвержденного опыта, которого у компании нет.")
-        return "НЕ ИДЕМ", reasons
-
-    if company_can_prepare_fast == "Нет":
-        reasons.append("Компания не готова быстро собрать и подать заявку.")
-        return "РИСК / ПРОВЕРИТЬ", reasons
-
-    reasons.append("Критических стоп-факторов не найдено.")
-    return "ИДЕМ / ПРОВЕРИТЬ ВРУЧНУЮ", reasons
-
-#Вызов локальной модели
 def ask_ollama_for_summary(text: str):
     prompt = f"""
-    Ты анализируешь документацию по государственной закупке.
+Ты анализируешь документацию по государственной закупке.
 
-    Ответь СТРОГО НА РУССКОМ ЯЗЫКЕ.
-    Не используй английский язык, кроме тех случаев, когда в самом документе есть официальные термины или названия.
-    Пиши ясно, кратко и по делу.
+Ответь СТРОГО НА РУССКОМ ЯЗЫКЕ.
+Не используй английский язык, кроме тех случаев, когда в самом документе есть официальные термины или названия.
+Пиши ясно, кратко и по делу.
 
-    Сделай:
-    1. Краткую выжимку закупки.
-    2. Ключевые требования к поставщику.
-    3. Основные риски.
-    4. Что нужно проверить перед участием.
-    5. Короткий вывод: идти / не идти / проверить вручную.
+Сделай:
+1. Краткую выжимку закупки.
+2. Ключевые требования к поставщику.
+3. Основные риски.
+4. Что нужно проверить перед участием.
+5. Короткий вывод: идти / не идти / проверить вручную.
 
-    Текст документа:
-    {text[:12000]}
-    """
+Текст документа:
+{text[:12000]}
+"""
 
     payload = {
-        "model": "gemma3:4b",   # или твоя модель
+        "model": "gemma3:4b",
         "messages": [
             {
                 "role": "system",
-                "content": "Ты — помощник по анализу тендерной документации. Всегда отвечай только на русском языке. Если ответ получился не на русском, перепиши его на русский полностью."
+                "content": "Ты — помощник по анализу тендерной документации. Всегда отвечай только на русском языке. Если ответ получился не на русском, перепиши его на русский полностью.",
             },
             {
                 "role": "user",
-                "content": prompt
-            }
+                "content": prompt,
+            },
         ],
-        "stream": False
+        "stream": False,
     }
 
     response = requests.post(
         "http://localhost:11434/api/chat",
         json=payload,
-        timeout=120
+        timeout=120,
     )
 
     response.raise_for_status()
     data = response.json()
     return data["message"]["content"]
 
-#Логика
-if uploaded_file is not None:
+
+st.title("ТендерНавигатор MVP")
+st.write("Загрузи PDF или DOCX с документацией закупки")
+
+uploaded_files = st.file_uploader(
+    "Загрузи пакет документов закупки",
+    type=["pdf", "docx"],
+    accept_multiple_files=True,
+)
+
+if uploaded_files:
+    current_signature = "|".join(sorted([f.name for f in uploaded_files]))
+
+    if current_signature != st.session_state.last_uploaded_signature:
+        st.session_state.ai_summary = ""
+        st.session_state.last_uploaded_signature = current_signature
+
+    documents = build_tender_documents(uploaded_files)
+
+    st.subheader("Загруженные документы")
+    for doc in documents:
+        st.write(f"- **{doc.filename}** ({doc.doc_type.value}) | символов: {doc.text_length}")
 
     st.sidebar.header("Профиль компании")
 
     company_name = st.sidebar.text_input("Название компании")
-    company_has_license = st.sidebar.selectbox("Есть нужная лицензия / допуск?", ["Не знаю", "Да", "Нет"])
-    company_has_experience = st.sidebar.selectbox("Есть релевантный опыт?", ["Не знаю", "Да", "Нет"])
-    company_can_prepare_fast = st.sidebar.selectbox("Сможем быстро подготовить заявку?", ["Не знаю", "Да", "Нет"])
+    company_inn = st.sidebar.text_input("ИНН")
+    company_region = st.sidebar.text_input("Регион")
+    company_categories_raw = st.sidebar.text_input("Категории / направления деятельности (через запятую)")
 
-    if uploaded_file.name.endswith(".pdf"):
-        text = extract_text_from_pdf(uploaded_file)
-    else:
-        text = extract_text_from_docx(uploaded_file)
+    company_has_license = st.sidebar.selectbox(
+        "Есть нужная лицензия / допуск?",
+        ["Нет", "Да"],
+    )
 
-    if len(text.strip()) < 50:
+    company_has_experience = st.sidebar.selectbox(
+        "Есть релевантный опыт?",
+        ["Нет", "Да"],
+    )
+
+    company_can_prepare_fast = st.sidebar.selectbox(
+        "Сможем быстро подготовить заявку?",
+        ["Нет", "Да"],
+    )
+
+    company_notes = st.sidebar.text_area("Заметки по компании")
+
+    profile = build_company_profile(
+        company_name=company_name,
+        company_inn=company_inn,
+        company_region=company_region,
+        company_categories_raw=company_categories_raw,
+        company_has_license=company_has_license,
+        company_has_experience=company_has_experience,
+        company_can_prepare_fast=company_can_prepare_fast,
+        company_notes=company_notes,
+    )
+
+    result = analyze_tender_package(
+        documents=documents,
+        profile=profile,
+        ai_summary=st.session_state.ai_summary,
+    )
+
+    if result.raw_text and len(result.raw_text.strip()) < 50:
         st.warning("Похоже, PDF без текстового слоя. Нужен OCR fallback.")
 
     st.subheader("Диагностика")
-    st.write(f"Длина извлеченного текста: {len(text)}")
-    st.text_area("Первые 2000 символов", text[:2000], height=200)
-
-    notice_number = find_notice_number(text)
-    object_name = find_object_name(text)
-    price = find_price(text)
-    deadline = find_deadline(text)
-    need_license = detect_license_requirement(text)
-    need_experience = detect_experience_requirement(text)
-    bid_security = find_bid_security(text)
-    contract_security = find_contract_security(text)
-    quality_guarantee = find_quality_guarantee(text)
-    decision, reasons = make_decision(
-    need_license,
-    need_experience,
-    company_has_license,
-    company_has_experience,
-    company_can_prepare_fast
-    )
-
+    st.write(f"Длина извлеченного текста: {len(result.raw_text or '')}")
+    st.text_area("Первые 2000 символов", (result.raw_text or "")[:2000], height=200)
 
     st.subheader("Первичный разбор")
-    st.write(f"**Номер извещения:** {notice_number or 'Не найдено'}")
-    st.write(f"**Объект закупки:** {object_name or 'Не найдено'}")
-    st.write(f"**НМЦК / цена:** {price or 'Не найдено'}")
-    st.write(f"**Срок подачи:** {deadline or 'Не найдено'}")
-    st.write(f"**Требуется лицензия / допуск:** {'Да' if need_license else 'Не обнаружено'}")
-    st.write(f"**Есть требование к опыту:** {'Да' if need_experience else 'Не обнаружено'}")
-    st.write(f"**Обеспечение заявки:** {bid_security or 'Не найдено'}")
-    st.write(f"**Обеспечение исполнения контракта:** {contract_security or 'Не найдено'}")
-    st.write(f"**Гарантия качества:** {quality_guarantee or 'Не найдено'}")
+    st.write(f"**Номер извещения:** {result.extracted.notice_number or 'Не найдено'}")
+    st.write(f"**Объект закупки:** {result.extracted.object_name or 'Не найдено'}")
+    st.write(f"**Заказчик:** {result.extracted.customer_name or 'Не найдено'}")
+    st.write(f"**НМЦК / цена:** {result.extracted.price or 'Не найдено'}")
+    st.write(f"**Срок подачи:** {result.extracted.deadline or 'Не найдено'}")
+    st.write(f"**Срок поставки / исполнения:** {result.extracted.supply_term or 'Не найдено'}")
+    st.write(f"**Обеспечение заявки:** {result.extracted.bid_security or 'Не найдено'}")
+    st.write(f"**Обеспечение исполнения контракта:** {result.extracted.contract_security or 'Не найдено'}")
+    st.write(f"**Гарантия качества:** {result.extracted.quality_guarantee or 'Не найдено'}")
+    st.write(f"**Требуется лицензия / допуск:** {'Да' if result.extracted.need_license else 'Не обнаружено'}")
+    st.write(f"**Есть требование к опыту:** {'Да' if result.extracted.need_experience else 'Не обнаружено'}")
 
     st.subheader("Рекомендация")
-    st.write(f"### {decision}")
+    st.write(f"### {result.decision_label or 'Не определено'}")
+    st.write(f"**Код решения:** {result.decision_code.value if result.decision_code else 'Не определен'}")
 
-    st.subheader("Причины")
-    for reason in reasons:
-        st.write(f"- {reason}")
+    st.subheader("Причины решения")
+    if result.decision_reasons:
+        for reason in result.decision_reasons:
+            st.write(f"- [{reason.severity.value}] {reason.message}")
+    else:
+        st.write("Причины пока не зафиксированы")
 
     st.subheader("Checklist участия")
-    checklist = build_checklist(
-        need_license,
-        need_experience,
-        bid_security,
-        contract_security,
-        quality_guarantee
-    )
+    if result.checklist:
+        for item in result.checklist:
+            st.write(f"- {item}")
+    else:
+        st.write("Checklist пока пуст")
 
-    for item in checklist:
-        st.write(f"- {item}")
+    if result.warnings:
+        st.subheader("Предупреждения")
+        for warning in result.warnings:
+            st.warning(warning)
 
-    
-
-    if "ai_summary" not in st.session_state:
-        st.session_state.ai_summary = ""
-
-    try:
-        import requests
-        OLLAMA_AVAILABLE = True
-    except Exception:
-        OLLAMA_AVAILABLE = False
-
-    if OLLAMA_AVAILABLE and not DEPLOY_MODE:
+    if AI_MODE:
         if st.button("Сделать AI-выжимку"):
             with st.spinner("Анализирую документ..."):
                 try:
-                    st.session_state.ai_summary = ask_ollama_for_summary(text)
+                    st.session_state.ai_summary = ask_ollama_for_summary(result.raw_text or "")
+                    result.ai_summary = st.session_state.ai_summary
                 except Exception as e:
                     st.error(f"Ошибка AI-анализа: {e}")
-        DATA_BASE_MODE = True
     else:
         st.info("AI-анализ в облачной версии временно отключен.")
-        DATA_BASE_MODE = False
-
 
     if st.session_state.ai_summary:
+        result.ai_summary = st.session_state.ai_summary
         st.subheader("AI-выжимка")
         st.write(st.session_state.ai_summary)
 
-    if DATA_BASE_MODE == True:
+    if DB_MODE:
         if st.button("Сохранить анализ"):
             try:
                 save_analysis(
-                    filename=uploaded_file.name,
-                    notice_number=notice_number or "",
-                    object_name=object_name or "",
-                    price=price or "",
-                    deadline=deadline or "",
-                    decision=decision or "",
-                    bid_security=bid_security or "",
-                    contract_security=contract_security or "",
-                    quality_guarantee=quality_guarantee or "",
-                    summary=st.session_state.ai_summary or ""
+                    package_name=result.package_name,
+                    notice_number=result.extracted.notice_number or "",
+                    object_name=result.extracted.object_name or "",
+                    price=result.extracted.price or "",
+                    deadline=result.extracted.deadline or "",
+                    decision=result.decision_label or "",
+                    bid_security=result.extracted.bid_security or "",
+                    contract_security=result.extracted.contract_security or "",
+                    quality_guarantee=result.extracted.quality_guarantee or "",
+                    summary=result.ai_summary or "",
                 )
                 st.success("Анализ сохранен в базу")
             except Exception as e:
                 st.error(f"Ошибка сохранения: {e}")
 
-            st.subheader("Последние сохраненные анализы")
+        st.subheader("Последние сохраненные анализы")
+        rows = get_last_analyses()
 
-            rows = get_last_analyses()
-
-            if rows:
-                for row in rows:
-                    st.write(f"- {row[0]} | {row[1]} | {row[2]} | {row[3]} | {row[4]}")
-            else:
-                st.write("Пока нет сохраненных анализов")
+        if rows:
+            for row in rows:
+                st.write(f"- {row[0]} | {row[1]} | {row[2]} | {row[3]} | {row[4]}")
+        else:
+            st.write("Пока нет сохраненных анализов")
     else:
         st.info("Сохранение AI-анализа в облачной версии временно отключено.")
+
+    with st.expander("Отладка: объект результата"):
+        st.json(model_to_dict(result))
+
+    with st.expander("Отладка: профиль компании"):
+        st.json(model_to_dict(profile))
