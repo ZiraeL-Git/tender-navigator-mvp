@@ -14,9 +14,9 @@ class DocumentType(str, Enum):
 
 class DecisionCode(str, Enum):
     go = "go"
-    reject = "reject"
+    stop = "stop"
     manual_review = "manual_review"
-    risk_review = "risk_review"
+    risk = "risk"
 
 
 class ReasonSeverity(str, Enum):
@@ -55,6 +55,9 @@ class DecisionReason(BaseModel):
     code: str
     severity: ReasonSeverity
     message: str
+    rule_id: str
+    rule_title: str
+    decision_code: DecisionCode
 
 
 class TenderExtractedFields(BaseModel):

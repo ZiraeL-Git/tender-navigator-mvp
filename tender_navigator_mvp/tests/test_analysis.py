@@ -42,9 +42,10 @@ def test_analyze_tender_package_rejects_if_license_required_but_missing():
 
     result = analyze_tender_package(docs, profile)
 
-    assert result.decision_code == DecisionCode.reject
-    assert result.decision_label == "НЕ ИДЕМ"
+    assert result.decision_code == DecisionCode.stop
+    assert result.decision_label == "СТОП"
     assert any(reason.code == "missing_license" for reason in result.decision_reasons)
+    assert any(reason.rule_id == "stop.missing_license_requirement" for reason in result.decision_reasons)
 
 
 def test_analyze_tender_package_rejects_if_experience_required_but_missing():
@@ -70,9 +71,10 @@ def test_analyze_tender_package_rejects_if_experience_required_but_missing():
 
     result = analyze_tender_package(docs, profile)
 
-    assert result.decision_code == DecisionCode.reject
-    assert result.decision_label == "НЕ ИДЕМ"
+    assert result.decision_code == DecisionCode.stop
+    assert result.decision_label == "СТОП"
     assert any(reason.code == "missing_experience" for reason in result.decision_reasons)
+    assert any(reason.rule_id == "stop.missing_confirmed_experience" for reason in result.decision_reasons)
 
 
 def test_analyze_tender_package_returns_manual_review_when_deadline_missing():
@@ -99,6 +101,7 @@ def test_analyze_tender_package_returns_manual_review_when_deadline_missing():
     assert result.decision_code == DecisionCode.manual_review
     assert result.decision_label == "ПРОВЕРИТЬ ВРУЧНУЮ"
     assert any(reason.code == "deadline_not_found" for reason in result.decision_reasons)
+    assert any(reason.rule_id == "manual_review.deadline_missing" for reason in result.decision_reasons)
 
 
 def test_analyze_tender_package_returns_risk_review_if_company_is_slow():
@@ -124,9 +127,10 @@ def test_analyze_tender_package_returns_risk_review_if_company_is_slow():
 
     result = analyze_tender_package(docs, profile)
 
-    assert result.decision_code == DecisionCode.risk_review
-    assert result.decision_label == "РИСК / ПРОВЕРИТЬ"
+    assert result.decision_code == DecisionCode.risk
+    assert result.decision_label == "РИСК"
     assert any(reason.code == "slow_preparation_risk" for reason in result.decision_reasons)
+    assert any(reason.rule_id == "risk.company_not_ready_for_fast_preparation" for reason in result.decision_reasons)
 
 
 def test_analyze_tender_package_returns_go_for_simple_valid_case():
@@ -166,6 +170,7 @@ def test_analyze_tender_package_returns_go_for_simple_valid_case():
 
     assert result.decision_code == DecisionCode.go
     assert result.decision_label == "ИДЕМ"
+    assert any(reason.rule_id == "go.no_blockers_detected" for reason in result.decision_reasons)
     assert result.extracted.notice_number == "0123500000126001234"
     assert result.extracted.object_name == "Поставка канцелярских товаров"
     assert result.extracted.customer_name == 'Муниципальное бюджетное учреждение "Школа №1"'
