@@ -11,6 +11,7 @@ from backend.app.core.settings import get_settings
 from backend.app.db.session import create_engine_from_settings, create_session_factory, initialize_database
 from backend.app.repositories.storage import StorageRepository
 from backend.app.services.analysis_pipeline import AnalysisPipelineService
+from backend.app.services.auth import AuthService
 from backend.app.services.file_storage import FileStorageService
 from backend.app.services.mvp_adapter import MvpAdapter
 from backend.app.services.tender_inputs import TenderInputService
@@ -20,6 +21,7 @@ settings = get_settings()
 engine = create_engine_from_settings(settings)
 session_factory = create_session_factory(engine)
 storage = StorageRepository(session_factory)
+auth_service = AuthService(storage, settings)
 mvp_adapter = MvpAdapter(settings)
 file_storage = FileStorageService(settings)
 tender_input_service = TenderInputService(storage, file_storage)
@@ -32,6 +34,7 @@ async def lifespan(app: FastAPI):
     app.state.engine = engine
     app.state.session_factory = session_factory
     app.state.storage = storage
+    app.state.auth_service = auth_service
     app.state.mvp_adapter = mvp_adapter
     app.state.file_storage = file_storage
     app.state.tender_input_service = tender_input_service

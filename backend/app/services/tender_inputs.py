@@ -23,6 +23,7 @@ class TenderInputService:
         self,
         *,
         company_profile_id: int,
+        organization_id: int,
         files,
     ) -> dict:
         folder_name = self.file_storage.create_folder_name("manual-upload")
@@ -47,10 +48,16 @@ class TenderInputService:
                 },
                 "documents": documents,
                 "last_error": None,
-            }
+            },
+            organization_id=organization_id,
         )
 
-    def import_from_reference(self, payload: TenderInputImportRequest) -> dict:
+    def import_from_reference(
+        self,
+        payload: TenderInputImportRequest,
+        *,
+        organization_id: int,
+    ) -> dict:
         source_url = payload.source_url
         notice_number = payload.notice_number or self._extract_notice_number_from_url(source_url)
         source_type = "notice_number" if notice_number else "source_url"
@@ -91,7 +98,8 @@ class TenderInputService:
                 "normalized_payload": normalized_payload,
                 "documents": [generated_document],
                 "last_error": None,
-            }
+            },
+            organization_id=organization_id,
         )
 
     def _extract_notice_number_from_url(self, source_url: str | None) -> str | None:

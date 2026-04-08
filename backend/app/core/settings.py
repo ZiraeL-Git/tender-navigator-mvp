@@ -25,6 +25,8 @@ class Settings:
     app_name: str
     api_v1_prefix: str
     cors_allowed_origins: list[str]
+    auth_secret_key: str
+    auth_access_token_ttl_minutes: int
     root_dir: Path
     backend_dir: Path
     data_dir: Path
@@ -59,6 +61,10 @@ def get_settings() -> Settings:
                 "http://127.0.0.1:3000",
                 "http://localhost:3000",
             ],
+        ),
+        auth_secret_key=os.getenv("TENDER_NAVIGATOR_AUTH_SECRET_KEY", "tender-navigator-dev-secret"),
+        auth_access_token_ttl_minutes=int(
+            os.getenv("TENDER_NAVIGATOR_AUTH_ACCESS_TOKEN_TTL_MINUTES", "720")
         ),
         root_dir=root_dir,
         backend_dir=backend_dir,

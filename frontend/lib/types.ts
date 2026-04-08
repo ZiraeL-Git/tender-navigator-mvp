@@ -1,3 +1,64 @@
+export type Organization = {
+  id: number;
+  name: string;
+  slug: string;
+};
+
+export type AuthUser = {
+  id: number;
+  email: string;
+  full_name: string | null;
+  role: "owner" | "operator" | "viewer";
+  is_active: boolean;
+  is_owner: boolean;
+  organization: Organization;
+};
+
+export type AuthSession = {
+  access_token: string;
+  token_type: string;
+  user: AuthUser;
+};
+
+export type AuthBootstrap = {
+  setup_required: boolean;
+};
+
+export type Invitation = {
+  id: number;
+  organization_id: number;
+  organization: Organization | null;
+  email: string;
+  role: "owner" | "operator" | "viewer";
+  status: string;
+  token: string;
+  created_at: string;
+  updated_at: string;
+  expires_at: string;
+  accepted_at: string | null;
+  invited_by: {
+    id: number;
+    email: string;
+    full_name: string | null;
+  } | null;
+};
+
+export type AuditLog = {
+  id: number;
+  organization_id: number;
+  action: string;
+  entity_type: string;
+  entity_id: string | null;
+  payload: Record<string, unknown>;
+  created_at: string;
+  actor_user: {
+    id: number;
+    email: string;
+    full_name: string | null;
+    role: string;
+  } | null;
+};
+
 export type CompanyProfile = {
   id: number;
   created_at: string;
@@ -105,10 +166,4 @@ export type AnalysisListItem = {
   notice_number: string | null;
   object_name: string | null;
   deadline: string | null;
-};
-
-export type DashboardMetrics = {
-  analysesCount: number;
-  inputsCount: number;
-  activeProfileName: string;
 };

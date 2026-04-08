@@ -4,18 +4,15 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ReactNode, useEffect, useState } from "react";
 
-import {
-  clearSession,
-  readActiveProfileId,
-  readSession,
-  type OperatorSession
-} from "@/components/auth";
+import { clearSession, readActiveProfileId, readSession } from "@/components/auth";
+import { AuthSession } from "@/lib/types";
 
 const navigationItems = [
   { href: "/dashboard", label: "Сводка" },
   { href: "/profiles", label: "Профиль компании" },
   { href: "/inputs", label: "Импорт закупок" },
-  { href: "/analyses", label: "Анализы" }
+  { href: "/analyses", label: "Анализы" },
+  { href: "/team", label: "Команда" }
 ];
 
 type DashboardShellProps = {
@@ -24,10 +21,20 @@ type DashboardShellProps = {
   children: ReactNode;
 };
 
+function getRoleLabel(role: AuthSession["user"]["role"]): string {
+  if (role === "owner") {
+    return "Владелец организации";
+  }
+  if (role === "viewer") {
+    return "Наблюдатель";
+  }
+  return "Оператор";
+}
+
 export function DashboardShell({ title, subtitle, children }: DashboardShellProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const [session, setSession] = useState<OperatorSession | null>(null);
+  const [session, setSession] = useState<AuthSession | null>(null);
   const [activeProfileId, setActiveProfileId] = useState<number | null>(null);
 
   useEffect(() => {
@@ -50,6 +57,9 @@ export function DashboardShell({ title, subtitle, children }: DashboardShellProp
     return null;
   }
 
+  const displayName = session.user.full_name ?? session.user.email;
+  const roleLabel = getRoleLabel(session.user.role);
+
   return (
     <div className="dashboard-shell">
       <aside className="sidebar">
@@ -57,14 +67,16 @@ export function DashboardShell({ title, subtitle, children }: DashboardShellProp
           <p className="eyebrow">Tender Navigator</p>
           <h1>Личный кабинет поставщика</h1>
           <p className="muted">
-            Профиль компании, импорт закупок, фоновая обработка и ручная проверка решения
-            собраны в одном рабочем пространстве.
+            Профиль компании, импорт закупок, фоновая обработка, командная работа и ручная
+            проверка решения собраны в одном рабочем пространстве.
           </p>
         </div>
 
         <div className="profile-card profile-card-active">
-          <strong>{session.name}</strong>
-          <span>{session.email}</span>
+          <strong>{displayName}</strong>
+          <span>{session.user.email}</span>
+          <span>{roleLabel}</span>
+          <span>Организация: {session.user.organization.name}</span>
           <span>Активный профиль: {activeProfileId ? `#${activeProfileId}` : "не выбран"}</span>
         </div>
 
@@ -75,7 +87,7 @@ export function DashboardShell({ title, subtitle, children }: DashboardShellProp
               <Link
                 key={item.href}
                 className={`nav-link${isActive ? " active" : ""}`}
-                href={item.href}
+                href={item.href as any}
               >
                 {item.label}
               </Link>

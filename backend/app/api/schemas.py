@@ -6,6 +6,94 @@ from typing import Any, List, Optional
 from pydantic import BaseModel, Field, model_validator
 
 
+class OrganizationResponse(BaseModel):
+    id: int
+    name: str
+    slug: str
+
+
+class AuthUserResponse(BaseModel):
+    id: int
+    email: str
+    full_name: Optional[str] = None
+    role: str
+    is_active: bool
+    is_owner: bool
+    organization: OrganizationResponse
+
+
+class AuthBootstrapResponse(BaseModel):
+    setup_required: bool
+
+
+class AuthRegisterRequest(BaseModel):
+    organization_name: str = Field(min_length=2, max_length=255)
+    full_name: str = Field(min_length=2, max_length=255)
+    email: str = Field(min_length=5, max_length=320)
+    password: str = Field(min_length=8, max_length=255)
+
+
+class AuthLoginRequest(BaseModel):
+    email: str = Field(min_length=5, max_length=320)
+    password: str = Field(min_length=8, max_length=255)
+
+
+class AuthSessionResponse(BaseModel):
+    access_token: str
+    token_type: str
+    user: AuthUserResponse
+
+
+class InvitationCreateRequest(BaseModel):
+    email: str = Field(min_length=5, max_length=320)
+    role: str = Field(default="operator", pattern="^(owner|operator|viewer)$")
+
+
+class InvitationAcceptRequest(BaseModel):
+    token: str = Field(min_length=10, max_length=255)
+    full_name: str = Field(min_length=2, max_length=255)
+    password: str = Field(min_length=8, max_length=255)
+
+
+class InvitationInviterResponse(BaseModel):
+    id: int
+    email: str
+    full_name: Optional[str] = None
+
+
+class InvitationResponse(BaseModel):
+    id: int
+    organization_id: int
+    email: str
+    role: str
+    status: str
+    token: str
+    created_at: datetime
+    updated_at: datetime
+    expires_at: datetime
+    accepted_at: Optional[datetime] = None
+    organization: Optional[OrganizationResponse] = None
+    invited_by: Optional[InvitationInviterResponse] = None
+
+
+class AuditActorResponse(BaseModel):
+    id: int
+    email: str
+    full_name: Optional[str] = None
+    role: str
+
+
+class AuditLogResponse(BaseModel):
+    id: int
+    organization_id: int
+    action: str
+    entity_type: str
+    entity_id: Optional[str] = None
+    payload: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime
+    actor_user: Optional[AuditActorResponse] = None
+
+
 class CompanyProfileCreate(BaseModel):
     company_name: str = ""
     inn: str = ""

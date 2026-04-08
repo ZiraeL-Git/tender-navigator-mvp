@@ -1,12 +1,9 @@
 "use client";
 
-export const SESSION_KEY = "tn_operator_session";
-export const ACTIVE_PROFILE_KEY = "tn_active_profile_id";
+import { AuthSession } from "@/lib/types";
 
-export type OperatorSession = {
-  name: string;
-  email: string;
-};
+export const SESSION_KEY = "tn_auth_session";
+export const ACTIVE_PROFILE_KEY = "tn_active_profile_id";
 
 function readLocalStorage(key: string): string | null {
   if (typeof window === "undefined") {
@@ -16,25 +13,29 @@ function readLocalStorage(key: string): string | null {
   return window.localStorage.getItem(key);
 }
 
-export function readSession(): OperatorSession | null {
+export function readSession(): AuthSession | null {
   const value = readLocalStorage(SESSION_KEY);
   if (!value) {
     return null;
   }
 
   try {
-    return JSON.parse(value) as OperatorSession;
+    return JSON.parse(value) as AuthSession;
   } catch {
     return null;
   }
 }
 
-export function saveSession(session: OperatorSession): void {
+export function saveSession(session: AuthSession): void {
   if (typeof window === "undefined") {
     return;
   }
 
   window.localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+}
+
+export function getAccessToken(): string | null {
+  return readSession()?.access_token ?? null;
 }
 
 export function clearSession(): void {

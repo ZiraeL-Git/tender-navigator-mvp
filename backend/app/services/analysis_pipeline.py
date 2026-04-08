@@ -12,13 +12,18 @@ class AnalysisPipelineService:
         self,
         *,
         tender_input_id: int,
+        organization_id: int,
         include_ai_summary: bool = False,
     ) -> dict:
-        tender_input = self.storage.get_tender_input(tender_input_id)
+        tender_input = self.storage.get_tender_input(
+            tender_input_id,
+            organization_id=organization_id,
+        )
         if tender_input is None:
             raise RuntimeError("Tender input not found")
 
         analysis = self.storage.create_analysis_job(
+            organization_id=organization_id,
             company_profile_id=tender_input["company_profile_id"],
             tender_input_id=tender_input_id,
             package_name=tender_input["title"] or tender_input["source_value"],
