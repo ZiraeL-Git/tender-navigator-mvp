@@ -1,6 +1,6 @@
 import re
 
-from schemas import DocumentType, TenderDocument
+from schemas import DocumentType, TenderDocument, ExtractionEvidence
 from services.document_io import combine_documents_text
 from services.text_utils import clean_object_name, normalize_text
 
@@ -540,3 +540,71 @@ def extract_with_priority(
 
     combined_text = combine_documents_text(documents)
     return extractor(combined_text)
+
+def make_snippet_from_value(text: str, value: str | None, radius: int = 120) -> str | None:
+    if not text or not value:
+        return None
+
+    normalized_text = normalize_text(text)
+    normalized_value = normalize_text(value)
+
+    idx = normalized_text.lower().find(normalized_value.lower())
+    match_len = len(normalized_value)
+
+    if idx == -1:
+        first_token = normalized_value.split()[0] if normalized_value.split() else normalized_value
+        idx = normalized_text.lower().find(first_token.lower())
+        match_len = len(first_token) if first_token else 0
+
+    if idx == -1:
+        return None
+
+    start = max(0, idx - radius)
+    end = min(len(normalized_text), idx + match_len + radius)
+    return normalized_text[start:end].strip()
+
+
+def extract_with_priority_debug(
+    documents: list[TenderDocument],
+    field_name: str,
+    extractor,
+    extractor_name: str,
+    preferred_types: tuple[DocumentType, ...] = (
+        DocumentType.notice,
+        DocumentType.contract,
+        DocumentType.spec,
+        DocumentType.other,
+    ),
+) -> tuple[str | None, ExtractionEvidence | None]:
+    for doc_type in preferred_types:
+        for doc in documents:
+            if doc.doc_type == doc_type:
+                value = extractor(doc.extracted_text or "")
+                if value:
+                    evidence = ExtractionEvidence(
+                        field_name=field_name,
+                        value=str(value),
+                        source_document=doc.filename,
+                        source_doc_type=doc.doc_type,
+                        extractor=extractor_name,
+                        snippet=make_snippet_from_value(doc.extracted_text or "", str(value)),
+                        confidence=0.9 if doc.doc_type in (DocumentType.notice, DocumentType.contract, DocumentType.spec) else 0.75,
+                    )
+                    return value, evidence
+
+    combined_text = combine_documents_text(documents)
+    value = extractor(combined_text)
+
+    if value:
+        evidence = ExtractionEvidence(
+            field_name=field_name,
+            value=str(value),
+            source_document="__combined__",
+            source_doc_type=None,
+            extractor=extractor_name,
+            snippet=make_snippet_from_value(combined_text, str(value)),
+            confidence=0.6,
+        )
+        return value, evidence
+
+    return None, None

@@ -14,9 +14,9 @@ class DocumentType(str, Enum):
 
 class DecisionCode(str, Enum):
     go = "go"
-    stop = "stop"
+    reject = "reject"
     manual_review = "manual_review"
-    risk = "risk"
+    risk_review = "risk_review"
 
 
 class ReasonSeverity(str, Enum):
@@ -55,9 +55,6 @@ class DecisionReason(BaseModel):
     code: str
     severity: ReasonSeverity
     message: str
-    rule_id: str
-    rule_title: str
-    decision_code: DecisionCode
 
 
 class TenderExtractedFields(BaseModel):
@@ -91,3 +88,17 @@ class TenderAnalysisResult(BaseModel):
 
     warnings: List[str] = Field(default_factory=list)
     errors: List[str] = Field(default_factory=list)
+    debug: Optional[AnalysisDebugInfo] = None
+
+class ExtractionEvidence(BaseModel):
+    field_name: str
+    value: Optional[str] = None
+    source_document: Optional[str] = None
+    source_doc_type: Optional[DocumentType] = None
+    extractor: str
+    snippet: Optional[str] = None
+    confidence: float = 0.5
+
+
+class AnalysisDebugInfo(BaseModel):
+    evidences: List[ExtractionEvidence] = Field(default_factory=list)

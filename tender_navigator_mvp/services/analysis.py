@@ -1,17 +1,20 @@
 from schemas import (
+    AnalysisDebugInfo,
     AnalysisStatus,
     CompanyProfile,
     DocumentType,
+    ExtractionEvidence,
     TenderAnalysisResult,
     TenderDocument,
     TenderExtractedFields,
 )
+
 from services.decision import build_checklist, make_decision
 from services.document_io import combine_documents_text
 from services.extractors import (
     detect_experience_requirement,
     detect_license_requirement,
-    extract_with_priority,
+    extract_with_priority_debug,
     find_bid_security,
     find_contract_security,
     find_customer_name,
@@ -58,94 +61,156 @@ def build_package_name(documents: list[TenderDocument]) -> str:
     return ", ".join([doc.filename for doc in documents])
 
 
-def build_extracted_fields(documents: list[TenderDocument]) -> TenderExtractedFields:
+def build_extracted_fields(
+    documents: list[TenderDocument],
+) -> tuple[TenderExtractedFields, list[ExtractionEvidence]]:
     combined_text = combine_documents_text(documents)
+    evidences: list[ExtractionEvidence] = []
 
-    return TenderExtractedFields(
-        notice_number=extract_with_priority(
-            documents,
-            find_notice_number,
-            preferred_types=(
-                DocumentType.notice,
-                DocumentType.other,
-                DocumentType.contract,
-                DocumentType.spec,
-            ),
+    notice_number, ev = extract_with_priority_debug(
+        documents=documents,
+        field_name="notice_number",
+        extractor=find_notice_number,
+        extractor_name="find_notice_number",
+        preferred_types=(
+            DocumentType.notice,
+            DocumentType.other,
+            DocumentType.contract,
+            DocumentType.spec,
         ),
-        object_name=extract_with_priority(documents, find_object_name),
-        customer_name=extract_with_priority(
-            documents,
-            find_customer_name,
-            preferred_types=(
-                DocumentType.notice,
-                DocumentType.contract,
-                DocumentType.other,
-                DocumentType.spec,
-            ),
+    )
+    if ev:
+        evidences.append(ev)
+
+    object_name, ev = extract_with_priority_debug(
+        documents=documents,
+        field_name="object_name",
+        extractor=find_object_name,
+        extractor_name="find_object_name",
+    )
+    if ev:
+        evidences.append(ev)
+
+    customer_name, ev = extract_with_priority_debug(
+        documents=documents,
+        field_name="customer_name",
+        extractor=find_customer_name,
+        extractor_name="find_customer_name",
+        preferred_types=(
+            DocumentType.notice,
+            DocumentType.contract,
+            DocumentType.other,
+            DocumentType.spec,
         ),
-        price=extract_with_priority(
-            documents,
-            find_price,
-            preferred_types=(
-                DocumentType.notice,
-                DocumentType.contract,
-                DocumentType.other,
-                DocumentType.spec,
-            ),
+    )
+    if ev:
+        evidences.append(ev)
+
+    price, ev = extract_with_priority_debug(
+        documents=documents,
+        field_name="price",
+        extractor=find_price,
+        extractor_name="find_price",
+        preferred_types=(
+            DocumentType.notice,
+            DocumentType.contract,
+            DocumentType.other,
+            DocumentType.spec,
         ),
-        deadline=extract_with_priority(
-            documents,
-            find_deadline,
-            preferred_types=(
-                DocumentType.notice,
-                DocumentType.other,
-                DocumentType.contract,
-                DocumentType.spec,
-            ),
+    )
+    if ev:
+        evidences.append(ev)
+
+    deadline, ev = extract_with_priority_debug(
+        documents=documents,
+        field_name="deadline",
+        extractor=find_deadline,
+        extractor_name="find_deadline",
+        preferred_types=(
+            DocumentType.notice,
+            DocumentType.other,
+            DocumentType.contract,
+            DocumentType.spec,
         ),
-        supply_term=extract_with_priority(
-            documents,
-            find_supply_term,
-            preferred_types=(
-                DocumentType.contract,
-                DocumentType.spec,
-                DocumentType.notice,
-                DocumentType.other,
-            ),
+    )
+    if ev:
+        evidences.append(ev)
+
+    supply_term, ev = extract_with_priority_debug(
+        documents=documents,
+        field_name="supply_term",
+        extractor=find_supply_term,
+        extractor_name="find_supply_term",
+        preferred_types=(
+            DocumentType.contract,
+            DocumentType.spec,
+            DocumentType.notice,
+            DocumentType.other,
         ),
-        bid_security=extract_with_priority(
-            documents,
-            find_bid_security,
-            preferred_types=(
-                DocumentType.notice,
-                DocumentType.contract,
-                DocumentType.other,
-                DocumentType.spec,
-            ),
+    )
+    if ev:
+        evidences.append(ev)
+
+    bid_security, ev = extract_with_priority_debug(
+        documents=documents,
+        field_name="bid_security",
+        extractor=find_bid_security,
+        extractor_name="find_bid_security",
+        preferred_types=(
+            DocumentType.notice,
+            DocumentType.contract,
+            DocumentType.other,
+            DocumentType.spec,
         ),
-        contract_security=extract_with_priority(
-            documents,
-            find_contract_security,
-            preferred_types=(
-                DocumentType.contract,
-                DocumentType.notice,
-                DocumentType.other,
-                DocumentType.spec,
-            ),
+    )
+    if ev:
+        evidences.append(ev)
+
+    contract_security, ev = extract_with_priority_debug(
+        documents=documents,
+        field_name="contract_security",
+        extractor=find_contract_security,
+        extractor_name="find_contract_security",
+        preferred_types=(
+            DocumentType.contract,
+            DocumentType.notice,
+            DocumentType.other,
+            DocumentType.spec,
         ),
-        quality_guarantee=extract_with_priority(
-            documents,
-            find_quality_guarantee,
-            preferred_types=(
-                DocumentType.contract,
-                DocumentType.spec,
-                DocumentType.notice,
-                DocumentType.other,
-            ),
+    )
+    if ev:
+        evidences.append(ev)
+
+    quality_guarantee, ev = extract_with_priority_debug(
+        documents=documents,
+        field_name="quality_guarantee",
+        extractor=find_quality_guarantee,
+        extractor_name="find_quality_guarantee",
+        preferred_types=(
+            DocumentType.contract,
+            DocumentType.spec,
+            DocumentType.notice,
+            DocumentType.other,
         ),
+    )
+    if ev:
+        evidences.append(ev)
+
+    extracted = TenderExtractedFields(
+        notice_number=notice_number,
+        object_name=object_name,
+        customer_name=customer_name,
+        price=price,
+        deadline=deadline,
+        supply_term=supply_term,
+        bid_security=bid_security,
+        contract_security=contract_security,
+        quality_guarantee=quality_guarantee,
         need_license=detect_license_requirement(combined_text),
         need_experience=detect_experience_requirement(combined_text),
     )
+
+    return extracted, evidences
 
 
 def analyze_tender_package(
@@ -154,7 +219,7 @@ def analyze_tender_package(
     ai_summary: str = "",
 ) -> TenderAnalysisResult:
     raw_text = combine_documents_text(documents)
-    extracted = build_extracted_fields(documents)
+    extracted, evidences = build_extracted_fields(documents)
 
     decision_code, decision_label, decision_reasons = make_decision(extracted, profile)
     checklist = build_checklist(extracted, profile)
@@ -188,4 +253,5 @@ def analyze_tender_package(
         documents=documents,
         warnings=warnings,
         errors=errors,
+        debug=AnalysisDebugInfo(evidences=evidences),
     )

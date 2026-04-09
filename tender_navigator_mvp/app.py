@@ -251,7 +251,7 @@ if uploaded_files:
     st.subheader("Причины решения")
     if result.decision_reasons:
         for reason in result.decision_reasons:
-            st.write(f"- [{reason.severity.value}] {reason.message} (rule: {reason.rule_id})")
+            st.write(f"- [{reason.severity.value}] {reason.message}")
     else:
         st.write("Причины пока не зафиксированы")
 
@@ -318,3 +318,7 @@ if uploaded_files:
 
     with st.expander("Отладка: профиль компании"):
         st.json(model_to_dict(profile))
+
+    if result.debug:
+        with st.expander("Отладка: provenance по полям"):
+            st.json(model_to_dict(result.debug))
