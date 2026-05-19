@@ -19,7 +19,7 @@ def make_profile(
     )
 
 
-def test_analyze_tender_package_rejects_if_license_required_but_missing():
+def test_analyze_tender_package_returns_stop_if_license_required_but_missing():
     docs = [
         TenderDocument(
             filename="notice.docx",
@@ -48,7 +48,7 @@ def test_analyze_tender_package_rejects_if_license_required_but_missing():
     assert any(reason.rule_id == "stop.missing_license_requirement" for reason in result.decision_reasons)
 
 
-def test_analyze_tender_package_rejects_if_experience_required_but_missing():
+def test_analyze_tender_package_returns_stop_if_experience_required_but_missing():
     docs = [
         TenderDocument(
             filename="notice.docx",
@@ -104,7 +104,7 @@ def test_analyze_tender_package_returns_manual_review_when_deadline_missing():
     assert any(reason.rule_id == "manual_review.deadline_missing" for reason in result.decision_reasons)
 
 
-def test_analyze_tender_package_returns_risk_review_if_company_is_slow():
+def test_analyze_tender_package_returns_risk_if_company_is_slow():
     docs = [
         TenderDocument(
             filename="notice.docx",

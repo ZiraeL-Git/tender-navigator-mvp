@@ -13,10 +13,10 @@ class DocumentType(str, Enum):
 
 
 class DecisionCode(str, Enum):
+    stop = "stop"
+    risk = "risk"
     go = "go"
-    reject = "reject"
     manual_review = "manual_review"
-    risk_review = "risk_review"
 
 
 class ReasonSeverity(str, Enum):
@@ -55,6 +55,9 @@ class DecisionReason(BaseModel):
     code: str
     severity: ReasonSeverity
     message: str
+    rule_id: Optional[str] = None
+    rule_title: Optional[str] = None
+    decision_code: Optional[DecisionCode] = None
 
 
 class TenderExtractedFields(BaseModel):
@@ -69,6 +72,20 @@ class TenderExtractedFields(BaseModel):
     quality_guarantee: Optional[str] = None
     need_license: bool = False
     need_experience: bool = False
+
+
+class ExtractionEvidence(BaseModel):
+    field_name: str
+    value: Optional[str] = None
+    source_document: Optional[str] = None
+    source_doc_type: Optional[DocumentType] = None
+    extractor: str
+    snippet: Optional[str] = None
+    confidence: float = 0.5
+
+
+class AnalysisDebugInfo(BaseModel):
+    evidences: List[ExtractionEvidence] = Field(default_factory=list)
 
 
 class TenderAnalysisResult(BaseModel):
@@ -89,16 +106,3 @@ class TenderAnalysisResult(BaseModel):
     warnings: List[str] = Field(default_factory=list)
     errors: List[str] = Field(default_factory=list)
     debug: Optional[AnalysisDebugInfo] = None
-
-class ExtractionEvidence(BaseModel):
-    field_name: str
-    value: Optional[str] = None
-    source_document: Optional[str] = None
-    source_doc_type: Optional[DocumentType] = None
-    extractor: str
-    snippet: Optional[str] = None
-    confidence: float = 0.5
-
-
-class AnalysisDebugInfo(BaseModel):
-    evidences: List[ExtractionEvidence] = Field(default_factory=list)

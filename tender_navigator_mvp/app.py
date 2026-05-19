@@ -251,7 +251,13 @@ if uploaded_files:
     st.subheader("Причины решения")
     if result.decision_reasons:
         for reason in result.decision_reasons:
-            st.write(f"- [{reason.severity.value}] {reason.message}")
+            explainability = []
+            if reason.rule_id:
+                explainability.append(f"rule={reason.rule_id}")
+            if reason.rule_title:
+                explainability.append(reason.rule_title)
+            suffix = f" ({' | '.join(explainability)})" if explainability else ""
+            st.write(f"- [{reason.severity.value}] {reason.message}{suffix}")
     else:
         st.write("Причины пока не зафиксированы")
 

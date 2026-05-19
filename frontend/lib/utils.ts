@@ -5,10 +5,10 @@ const STATUS_LABELS: Record<string, string> = {
   manual_reviewed: "Проверено вручную",
   failed: "Ошибка",
   imported: "Импортировано",
-  go: "GO",
-  risk: "RISK",
-  manual_review: "Требует проверки",
-  stop: "STOP",
+  go: "ИДЕМ",
+  risk: "РИСК",
+  manual_review: "ПРОВЕРИТЬ ВРУЧНУЮ",
+  stop: "СТОП",
   ok: "OK"
 };
 

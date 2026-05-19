@@ -366,10 +366,10 @@ export default function AnalysisDetailPage() {
                     }}
                   >
                     <option value="">Не менять</option>
-                    <option value="go">GO</option>
-                    <option value="risk">RISK</option>
-                    <option value="manual_review">MANUAL_REVIEW</option>
-                    <option value="stop">STOP</option>
+                    <option value="go">ИДЕМ</option>
+                    <option value="risk">РИСК</option>
+                    <option value="manual_review">ПРОВЕРИТЬ ВРУЧНУЮ</option>
+                    <option value="stop">СТОП</option>
                   </select>
                 </label>
 

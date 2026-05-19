@@ -1,5 +1,5 @@
 param(
-    [string]$Host = "127.0.0.1",
+    [string]$BindHost = "127.0.0.1",
     [int]$Port = 8000
 )
 
@@ -37,8 +37,8 @@ if (-not $env:TENDER_NAVIGATOR_CELERY_EAGER) {
     $env:TENDER_NAVIGATOR_CELERY_EAGER = "true"
 }
 
-Write-Host "Starting backend on http://$Host`:$Port"
+Write-Host "Starting backend on http://$BindHost`:$Port"
 Write-Host "Database: $env:TENDER_NAVIGATOR_DATABASE_URL"
 Write-Host "Celery eager: $env:TENDER_NAVIGATOR_CELERY_EAGER"
 
-& $pythonExe -m uvicorn backend.app.main:app --reload --host $Host --port $Port
+& $pythonExe -m uvicorn backend.app.main:app --reload --host $BindHost --port $Port

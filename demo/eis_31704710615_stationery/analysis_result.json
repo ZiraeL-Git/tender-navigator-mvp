@@ -1,0 +1,74 @@
+{
+  "schema_version": "1.0",
+  "status": "analyzed",
+  "package_name": "konkursnaya_dokumentaciya.doc, obosnovanie_nmck.pdf, protokol_1_chastei_scan.zip, protokol_2_chastei.zip, protokol_torgov.docx",
+  "decision_code": "manual_review",
+  "decision_label": "ПРОВЕРИТЬ ВРУЧНУЮ",
+  "extracted": {
+    "notice_number": null,
+    "object_name": null,
+    "customer_name": "е закупки 3. Информация о лоте",
+    "price": null,
+    "deadline": null,
+    "supply_term": null,
+    "bid_security": null,
+    "contract_security": null,
+    "quality_guarantee": null,
+    "need_license": false,
+    "need_experience": false
+  },
+  "decision_reasons": [
+    {
+      "code": "deadline_not_found",
+      "severity": "warning",
+      "message": "Не удалось надежно определить срок подачи заявки, поэтому требуется ручная проверка документации.",
+      "rule_id": "manual_review.deadline_missing",
+      "rule_title": "Не найден точный срок подачи",
+      "decision_code": "manual_review"
+    }
+  ],
+  "documents": [
+    {
+      "filename": "konkursnaya_dokumentaciya.doc",
+      "doc_type": "other",
+      "text_length": 0
+    },
+    {
+      "filename": "obosnovanie_nmck.pdf",
+      "doc_type": "other",
+      "text_length": 0
+    },
+    {
+      "filename": "protokol_1_chastei_scan.zip",
+      "doc_type": "other",
+      "text_length": 0
+    },
+    {
+      "filename": "protokol_2_chastei.zip",
+      "doc_type": "other",
+      "text_length": 0
+    },
+    {
+      "filename": "protokol_torgov.docx",
+      "doc_type": "other",
+      "text_length": 201
+    }
+  ],
+  "warnings": [
+    "Не удалось определить номер извещения.",
+    "Не удалось определить объект закупки.",
+    "Не удалось определить срок подачи заявки."
+  ],
+  "errors": [],
+  "debug_evidences": [
+    {
+      "field_name": "customer_name",
+      "value": "е закупки 3. Информация о лоте",
+      "source_document": "protokol_torgov.docx",
+      "source_doc_type": "other",
+      "extractor": "find_customer_name",
+      "snippet": "У СО \"ЦСО \"Сызранский\" Дата подписания протокола: 2017-02-17 1. Информация о процедуре 2. Данные об организации-заказчике закупки 3. Информация о лоте",
+      "confidence": 0.75
+    }
+  ]
+}

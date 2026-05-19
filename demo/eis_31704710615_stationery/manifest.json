@@ -1,0 +1,46 @@
+{
+  "source_url": "https://estp.ru/purchases/32255/docs",
+  "title": "Поставка канцелярских товаров",
+  "eis_number": "31704710615",
+  "platform_number": "E32255",
+  "published_at": "2017-01-26T16:01:44.000+03:00",
+  "customer": "ГБУ СО \"ЦСО \"Сызранский\"",
+  "customer_inn": "6325042526",
+  "procedure": "ЕСТП: Открытый аукцион в электронной форме",
+  "regulation": "223-ФЗ",
+  "status": "complete",
+  "initial_docs": [
+    {
+      "title": "Документация ОАЭФ (канцтовары).doc",
+      "category": "Конкурсная документация",
+      "download_url": "https://estp.ru/file/download/657703-d55bf3642aa6445d78f6ce065d4113db.doc/",
+      "size_bytes": 301568
+    },
+    {
+      "title": "обоснование НМЦК.pdf",
+      "category": "Конкурсная документация",
+      "download_url": "https://estp.ru/file/download/657705-9c43bf8e5fd4acc3aaa63ca844d3387f.pdf/",
+      "size_bytes": 1495338
+    }
+  ],
+  "protocol_docs": [
+    {
+      "title": "Протокол 1 -х частей заявок (скан).zip",
+      "protocol_title": "Протокол рассмотрения 1-х частей заявок",
+      "download_url": "https://estp.ru/file/download/685077-098da05a05bf1f689d1d2802f5c9d641.zip/",
+      "size_bytes": 1252585
+    },
+    {
+      "title": "Протокол торгов.docx",
+      "protocol_title": "Протокол этапа Торги в электронной форме",
+      "download_url": "https://estp.ru/file/download/687301-4050210ca93cc74b54731e46868e341e.docx/",
+      "size_bytes": 21618
+    },
+    {
+      "title": "Протокол 2-х частей заявок.zip",
+      "protocol_title": "Протокол рассмотрения 2-х частей заявок",
+      "download_url": "https://estp.ru/file/download/687767-61b697d388268a013d07155aa0b6e0ba.zip/",
+      "size_bytes": 2370096
+    }
+  ]
+}
